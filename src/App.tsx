@@ -370,7 +370,8 @@ export default function App() {
         onDismiss={dismissTray}
       />
 
-      <DismissButton kb={kb} trayBlock={g.trayBlock} hidden={!writing || dismissBlocked} onDismiss={dismissTray} />
+      {/* Only over the camera; the default keyboard goes the way Magic's does, by dragging the cards down. */}
+      <DismissButton kb={kb} trayBlock={g.trayBlock} hidden={!writing || dismissBlocked || input === 'keyboard'} onDismiss={dismissTray} />
 
       {/* The printed words lift off the menu and settle onto the card. */}
       {flights.map((f) => {
