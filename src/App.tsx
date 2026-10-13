@@ -6,6 +6,7 @@ import type { ReadSource } from './components/CaptureTray'
 import { CardCanvas, KB_TIMING } from './components/CardCanvas'
 import { CardMenu } from './components/CardMenu'
 import { DismissButton } from './components/DismissButton'
+import { NEW_THREAD_RESET_COVER_MS, NewThreadPreview, REVEAL_TIMING } from './components/NewThreadPreview'
 import { CARD_INK, fitCardText } from './components/MagicCard'
 import { Present } from './components/Present'
 import type { Rect } from './components/Present'
@@ -46,6 +47,10 @@ export default function App() {
   // (keyboardWillShow / WillHide), `kb` is its live progress.
   const [writing, setWriting] = useState(true)
   const kb = useMotionValue(1)
+  const newX = useMotionValue(g.colW)
+  useEffect(() => {
+    if (!newThreading.current) newX.set(g.colW)
+  }, [g.colW, newX])
   const [photo, setPhoto] = useState<Photo | null>(null)
   const [source, setSource] = useState<ReadSource | null>(null)
   const [items, setItems] = useState<MenuItem[]>([])
@@ -60,6 +65,7 @@ export default function App() {
   const [present, setPresent] = useState<number | null>(null)
   const [toast, setToast] = useState<{ key: number; text: string } | null>(null)
   const abortRef = useRef<AbortController | null>(null)
+  const newThreading = useRef(false)
   const flightKey = useRef(0)
 
   const shown = (writing ? [...cards, active] : cards).filter((c) => c.text)
@@ -171,6 +177,33 @@ export default function App() {
     animate(kb, 1, KB_TIMING)
   }, [kb])
 
+  // ---- Swipe left: a new thread, a clean start ----
+  const startNewThread = useCallback(() => {
+    if (newThreading.current) return
+    newThreading.current = true
+    animate(newX, 0, REVEAL_TIMING).then(() => {
+      // Under full cover: reset in place, no navigation.
+      abortRef.current?.abort()
+      setPhoto(null)
+      setSource(null)
+      setItems([])
+      setReading(false)
+      setError(null)
+      setCards([])
+      setActive({ id: newId(), text: '' })
+      setFlights([])
+      setPresent(null)
+      setMenuFor(null)
+      setDissolving(null)
+      setWriting(true)
+      kb.set(1)
+      setTimeout(() => {
+        newX.set(g.colW) // release instantly: the revealed thread is the preview
+        newThreading.current = false
+      }, NEW_THREAD_RESET_COVER_MS)
+    })
+  }, [newX, kb, g.colW])
+
   // ---- Card actions ----
   const cardText = (id: string) => (id === active.id ? active.text : cards.find((c) => c.id === id)?.text ?? '')
 
@@ -220,6 +253,8 @@ export default function App() {
         kb={kb}
         hideActiveText={flights.some((f) => f.cardId === active.id)}
         dismissBlocked={dismissBlocked}
+        newX={newX}
+        onNewThread={startNewThread}
         onCommit={handleCommit}
         onDismiss={dismissTray}
         onRecall={recallTray}
@@ -289,6 +324,8 @@ export default function App() {
           </motion.div>
         )
       })}
+
+      <NewThreadPreview g={g} x={newX} />
 
       <AnimatePresence>
         {present !== null && shown.length > 0 && (

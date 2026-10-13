@@ -6,6 +6,7 @@ import { BROWSE_TAIL, GAP } from '../hooks/useGeometry'
 import type { Geometry } from '../hooks/useGeometry'
 import { CARD_FONT, CARD_FONT_WEIGHT, PAD } from '../lib/textLayout'
 import type { Card } from '../lib/types'
+import { NEW_THREAD_HOME_SPRING, commitsNewThread } from './NewThreadPreview'
 
 // CardPager v2 (apps/magic-mobile/docs/cardpager-v2.md), in the browser, with
 // the capture tray in the keyboard's place. One position (`pos`, the scroll
@@ -51,6 +52,8 @@ interface Props {
   kb: MotionValue<number>
   hideActiveText: boolean // a word is in flight onto the writing surface
   dismissBlocked: boolean // lone empty card on a fresh thread
+  newX: MotionValue<number> // the new-thread layer: rests at the screen width, 0 = covering
+  onNewThread: () => void
   onCommit: () => void
   onDismiss: () => void
   onRecall: () => void
@@ -101,6 +104,9 @@ export function CardCanvas(props: Props) {
   // ---- Drag: one gesture engine for both modes ----
   const drag = useRef<{
     id: number
+    x0: number
+    axis: 'x' | 'y' | null
+    lastX: { t: number; x: number }[]
     y0: number
     pos0: number
     last: { t: number; y: number }[]
@@ -125,6 +131,9 @@ export function CardCanvas(props: Props) {
     const L = live.current
     drag.current = {
       id: e.pointerId,
+      x0: e.clientX,
+      axis: null,
+      lastX: [{ t: e.timeStamp, x: e.clientX }],
       y0: e.clientY,
       pos0: pos.get(),
       last: [{ t: e.timeStamp, y: e.clientY }],
@@ -144,8 +153,17 @@ export function CardCanvas(props: Props) {
     const d = drag.current
     if (!d || e.pointerId !== d.id) return
     const dy = e.clientY - d.y0
-    if (!d.moved && Math.abs(dy) < 6) return
+    const dx = e.clientX - d.x0
+    if (!d.moved && Math.hypot(dx, dy) < 6) return
     d.moved = true
+    // One pan, two axes, as in Magic: horizontal is the new-thread swipe, vertical the cards.
+    if (!d.axis) d.axis = Math.abs(dx) > Math.abs(dy) ? 'x' : 'y'
+    if (d.axis === 'x') {
+      d.lastX.push({ t: e.timeStamp, x: e.clientX })
+      if (d.lastX.length > 5) d.lastX.shift()
+      props.newX.set(Math.min(g.colW, Math.max(0, g.colW + Math.min(0, dx))))
+      return
+    }
     d.last.push({ t: e.timeStamp, y: e.clientY })
     if (d.last.length > 5) d.last.shift()
     const L = live.current
@@ -178,6 +196,14 @@ export function CardCanvas(props: Props) {
     window.removeEventListener('pointerup', onUp)
     window.removeEventListener('pointercancel', onUp)
     if (!d.moved) return
+    if (d.axis === 'x') {
+      const a = d.lastX[0]
+      const z = d.lastX[d.lastX.length - 1]
+      const vx = ((z.x - a.x) / Math.max(1, z.t - a.t)) * 1000 // px/s
+      if (commitsNewThread(g.colW - props.newX.get(), g.colW, vx)) props.onNewThread()
+      else animate(props.newX, g.colW, NEW_THREAD_HOME_SPRING)
+      return
+    }
     const L = live.current
     const vy = velocity() // +down
     const at = pos.get()
@@ -247,6 +273,7 @@ export function CardCanvas(props: Props) {
   const rootRef = useRef<HTMLDivElement | null>(null)
   const wheelScale = useRef(1)
   const wheelPull = useRef(0)
+  const swipeX = useRef(0)
   useEffect(() => {
     const el = rootRef.current
     if (!el) return
@@ -258,6 +285,15 @@ export function CardCanvas(props: Props) {
           wheelScale.current = 1
           presentAt(e.clientY)
         } else if (wheelScale.current < 0.9) wheelScale.current = 1
+        return
+      }
+      if (Math.abs(e.deltaX) > Math.abs(e.deltaY)) {
+        // A trackpad's two-finger swipe left is the new-thread swipe.
+        swipeX.current = e.deltaX > 0 ? swipeX.current + e.deltaX : 0
+        if (swipeX.current > 120) {
+          swipeX.current = 0
+          props.onNewThread()
+        }
         return
       }
       if (live.current.writing) {

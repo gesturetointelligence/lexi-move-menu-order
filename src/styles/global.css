@@ -422,6 +422,25 @@ input:focus-visible {
   pointer-events: none;
 }
 
+/* ---- New thread (swipe left) ---- */
+
+.new-thread {
+  position: absolute;
+  inset: 0;
+  z-index: 35;
+  background: #000;
+  pointer-events: none;
+}
+
+.new-thread-drawer {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: #1c1c1e;
+  border-radius: 28px 28px 0 0;
+}
+
 /* ---- Present ---- */
 
 .present {
