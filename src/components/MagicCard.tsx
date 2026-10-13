@@ -1,61 +1,65 @@
-import { useMemo } from 'react'
-import {
-  BASE_CARD_W_PT,
-  BASE_INNER_W_PT,
-  BUTTON_ZONE,
-  CARD_ASPECT,
-  CARD_FONT,
-  CARD_FONT_WEIGHT,
-  CARD_RADIUS,
-  PAD,
-  layoutCardText,
-} from '../lib/textLayout'
+import { forwardRef, useMemo } from 'react'
+import type { CSSProperties, ReactNode } from 'react'
+import { BUTTON_ZONE, CARD_FONT, CARD_FONT_WEIGHT, CARD_RADIUS, MAX_FONT, PAD, layoutCardText } from '../lib/textLayout'
 
+// Magic's default card (lib/app-themes.ts): black ink on Signal, SF Pro Rounded, Bold = 600.
 export const CARD_BG = '#D0E62C'
 export const CARD_INK = '#151715'
 
+/** CardPager's PRESENT_SCALE: the presented card fits text up to 15% larger. */
+export const PRESENT_SCALE = 1.15
+
+export function fitCardText(text: string, width: number, height: number, present = false) {
+  return layoutCardText({
+    text,
+    fontFamily: CARD_FONT,
+    fontWeight: CARD_FONT_WEIGHT,
+    innerW: width - 2 * PAD,
+    // A card keeps the Magic button's zone clear; the presented card has no chrome.
+    availH: height - 2 * PAD - (present ? 0 : BUTTON_ZONE),
+    maxFont: present ? MAX_FONT * PRESENT_SCALE : MAX_FONT,
+  })
+}
+
 interface Props {
   text: string
-  /** Rendered width in px. Height follows the Magic card aspect. */
   width: number
+  height: number
+  present?: boolean
+  /** Blank writing surface: show the caret. */
+  caret?: boolean
+  style?: CSSProperties
+  className?: string
+  children?: ReactNode
 }
 
 /**
- * The Magic card, true to the app: laid out in pt on the iPhone baseline,
- * then scaled, so it fits text exactly as the phone does at any size.
+ * The Magic card, true to CardPager: radius 24, padding 18, text top-left,
+ * fitted to the card and never truncated. Cards are laid out in real points;
+ * the app has two sizes, the card and the presented card.
  */
-export function MagicCard({ text, width }: Props) {
-  const height = width / CARD_ASPECT
-  const scale = width / BASE_CARD_W_PT
-
-  const layout = useMemo(
-    () =>
-      layoutCardText({
-        text,
-        fontFamily: CARD_FONT,
-        fontWeight: CARD_FONT_WEIGHT,
-        innerW: BASE_INNER_W_PT,
-        availH: height / scale - 2 * PAD - BUTTON_ZONE,
-      }),
-    [text, height, scale],
-  )
+export const MagicCard = forwardRef<HTMLDivElement, Props>(function MagicCard(
+  { text, width, height, present = false, caret = false, style, className, children },
+  ref,
+) {
+  const layout = useMemo(() => fitCardText(text, width, height, present), [text, width, height, present])
 
   return (
     <div
-      className="magic-card"
-      role="img"
-      aria-label={text}
+      ref={ref}
+      className={`magic-card${className ? ` ${className}` : ''}`}
       style={{
         width,
         height,
-        borderRadius: CARD_RADIUS * scale,
-        padding: PAD * scale,
+        borderRadius: present ? 0 : CARD_RADIUS,
+        padding: PAD,
         background: CARD_BG,
         color: CARD_INK,
         fontFamily: CARD_FONT,
         fontWeight: CARD_FONT_WEIGHT,
-        fontSize: layout.fontSize * scale,
-        lineHeight: `${layout.lineHeight * scale}px`,
+        fontSize: layout.fontSize,
+        lineHeight: `${layout.lineHeight}px`,
+        ...style,
       }}
     >
       {layout.lines.map((line, i) => (
@@ -63,6 +67,10 @@ export function MagicCard({ text, width }: Props) {
           {line}
         </div>
       ))}
+      {caret && text.length === 0 && (
+        <span className="caret" style={{ height: layout.lineHeight * 0.8 }} aria-hidden="true" />
+      )}
+      {children}
     </div>
   )
-}
+})

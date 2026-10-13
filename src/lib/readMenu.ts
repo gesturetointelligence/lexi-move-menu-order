@@ -30,8 +30,6 @@ interface RawItem {
   name: string
   price: string
   box: { x: number; y: number; w: number; h: number }
-  card: string
-  card_many: string
 }
 
 /**
@@ -75,7 +73,7 @@ export function completedItems(text: string): RawItem[] {
 
 function toItem(raw: RawItem, i: number, photo: Photo): MenuItem | null {
   const { x, y, w, h } = raw.box ?? {}
-  if (![x, y, w, h].every((v) => typeof v === 'number' && Number.isFinite(v)) || w <= 0 || h <= 0) {
+  if (!raw.name?.trim() || ![x, y, w, h].every((v) => typeof v === 'number' && Number.isFinite(v)) || w <= 0 || h <= 0) {
     return null
   }
   // A little air around the printed line makes a kinder tap target.
@@ -95,8 +93,6 @@ function toItem(raw: RawItem, i: number, photo: Photo): MenuItem | null {
       w: (x1 - x0) / photo.width,
       h: (y1 - y0) / photo.height,
     },
-    card: raw.card,
-    cardMany: raw.card_many,
   }
 }
 

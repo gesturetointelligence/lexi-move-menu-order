@@ -1,22 +1,21 @@
-// The one AI call. Runs inside the Vite dev server so the key never reaches
-// the browser. Reads the whole menu once and pre-writes every card, so a tap
-// on the photo is instant: no round trip at the counter.
+// The one AI call, and the one place this play leaves the phone: the menu
+// photo goes to a cloud model. Magic's own Rewrite and Translate never do.
+// Runs inside the Vite dev server so the key never reaches the browser. It
+// only finds where items are printed; the words on a card are the menu's own.
 
 import Anthropic from '@anthropic-ai/sdk'
 import type { IncomingMessage, ServerResponse } from 'node:http'
 
 const MODEL = 'claude-opus-5-5'
 
-const SYSTEM = `You read photographed menus for a person ordering at a counter. They will tap items on the photo, and each tap becomes a card they hold up for the staff to read. They may not speak at the counter, so the card does the talking.
+const SYSTEM = `You find the orderable items on a photographed menu. A person will tap an item on the photo and it becomes a card they hold up at the counter, so the tap target must sit exactly on the printed item.
 
-Find every orderable item on the menu. Skip section headings, descriptions, notes, allergen keys, and prices on their own.
+Skip section headings, descriptions, notes, allergen keys, and prices on their own.
 
 For each item return:
-- name: exactly as printed, so staff recognise it at a glance.
+- name: exactly as printed. Do not translate, correct, or reword it.
 - price: as printed, or an empty string.
 - box: the item's tap target in pixels of the image you were given (x, y = top-left, w, h). Cover the name line, and the price when it sits on the same row. Tight, not padded.
-- card: what the person would say ordering one, written in the language of the menu. Short and natural, using the printed name. Example: "One flat white, please."
-- card_many: the same sentence for a quantity, with {n} where the number goes. Example: "{n} flat whites, please."
 
 List items in reading order: top to bottom, then left to right by column.`
 
@@ -30,7 +29,7 @@ const SCHEMA = {
       items: {
         type: 'object',
         additionalProperties: false,
-        required: ['name', 'price', 'box', 'card', 'card_many'],
+        required: ['name', 'price', 'box'],
         properties: {
           name: { type: 'string' },
           price: { type: 'string' },
@@ -45,8 +44,6 @@ const SCHEMA = {
               h: { type: 'integer' },
             },
           },
-          card: { type: 'string' },
-          card_many: { type: 'string' },
         },
       },
     },

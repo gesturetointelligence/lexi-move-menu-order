@@ -1,6 +1,6 @@
-// A printed café menu, drawn on canvas so the demo runs with no key and no
-// server. Boxes come from the drawing itself, and the cards are written the
-// way the model writes them, so the sample behaves like a real read.
+// A printed café menu, drawn on canvas so the demo runs with no key, no
+// server and nothing leaving the device. Boxes come from the drawing itself,
+// so the sample behaves like a real read.
 
 import type { MenuItem, Photo } from './types'
 
@@ -10,36 +10,34 @@ const H = 1600
 interface Entry {
   name: string
   price: string
-  card: string
-  cardMany: string
 }
 
 const SECTIONS: { title: string; entries: Entry[] }[] = [
   {
     title: 'Coffee',
     entries: [
-      { name: 'Espresso', price: '3.00', card: 'One espresso, please.', cardMany: '{n} espressos, please.' },
-      { name: 'Flat white', price: '3.80', card: 'One flat white, please.', cardMany: '{n} flat whites, please.' },
-      { name: 'Oat cortado', price: '3.90', card: 'One oat cortado, please.', cardMany: '{n} oat cortados, please.' },
-      { name: 'Iced long black', price: '4.20', card: 'One iced long black, please.', cardMany: '{n} iced long blacks, please.' },
-      { name: 'Chai latte', price: '4.10', card: 'One chai latte, please.', cardMany: '{n} chai lattes, please.' },
+      { name: 'Espresso', price: '3.00' },
+      { name: 'Flat white', price: '3.80' },
+      { name: 'Oat cortado', price: '3.90' },
+      { name: 'Iced long black', price: '4.20' },
+      { name: 'Chai latte', price: '4.10' },
     ],
   },
   {
     title: 'Breakfast',
     entries: [
-      { name: 'Smashed avocado on sourdough', price: '12.50', card: 'Smashed avocado on sourdough, please.', cardMany: '{n} smashed avocado on sourdough, please.' },
-      { name: 'Bacon & egg roll', price: '9.00', card: 'One bacon and egg roll, please.', cardMany: '{n} bacon and egg rolls, please.' },
-      { name: 'Shakshuka', price: '14.00', card: 'The shakshuka, please.', cardMany: '{n} shakshukas, please.' },
-      { name: 'Bircher muesli', price: '10.50', card: 'One Bircher muesli, please.', cardMany: '{n} Bircher mueslis, please.' },
+      { name: 'Smashed avocado on sourdough', price: '12.50' },
+      { name: 'Bacon & egg roll', price: '9.00' },
+      { name: 'Shakshuka', price: '14.00' },
+      { name: 'Bircher muesli', price: '10.50' },
     ],
   },
   {
     title: 'Bakery',
     entries: [
-      { name: 'Almond croissant', price: '5.20', card: 'One almond croissant, please.', cardMany: '{n} almond croissants, please.' },
-      { name: 'Banana bread', price: '4.80', card: 'A slice of banana bread, please.', cardMany: '{n} slices of banana bread, please.' },
-      { name: 'Cinnamon scroll', price: '4.90', card: 'One cinnamon scroll, please.', cardMany: '{n} cinnamon scrolls, please.' },
+      { name: 'Almond croissant', price: '5.20' },
+      { name: 'Banana bread', price: '4.80' },
+      { name: 'Cinnamon scroll', price: '4.90' },
     ],
   },
 ]
@@ -116,8 +114,6 @@ export function drawSampleMenu(): { photo: Photo; items: MenuItem[] } {
           w: (right - left + 2 * padX) / W,
           h: (h + 2 * padY) / H,
         },
-        card: e.card,
-        cardMany: e.cardMany,
       })
       y += 72
     }

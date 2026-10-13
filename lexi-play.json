@@ -1,7 +1,7 @@
 {
   "name": "Menu Order",
   "slug": "menu-order",
-  "description": "Photograph a menu, tap each item on the photo, and each tap returns as its own card, already written, clear enough to hold up at the counter.",
+  "description": "Magic's cards with the camera as the keyboard: photograph a menu, tap each item on the photo, and each tap becomes its own card in the thread, ready to present at the counter.",
   "date": "2026-10-13",
   "authors": ["wayne"],
   "medium": "interactive",
