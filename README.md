@@ -16,7 +16,7 @@ The drawer works exactly as the keyboard does in CardPager (`apps/magic-mobile/d
 
 One deviation from the app: Magic shows the button only once a card has a character. Here it shows on the blank card too, so the camera is reachable from the first screen.
 
-**The cloud is a labelled play.** Magic's promise is that what you write never leaves the phone. Here the menu photo goes to a cloud model to find where items are printed (the drawer marks it with a cloud glyph), and Rewrite and Translate run on a cloud model too, since a browser has no on-device model. Rewrite uses Magic's own prompt, copied verbatim from `packages/magic-config` into `server/magicConfig.ts`. Sample menu runs entirely in the browser.
+**The cloud is a labelled play.** Magic's promise is that what you write never leaves the phone. Here the menu photo goes to a cloud model to find where items are printed (the drawer marks it with a cloud glyph), and Rewrite and Translate run on a cloud model too, since a browser has no on-device model. Rewrite uses Magic's own prompt, which is private: it is never copied into this repo. The dev server reads it at run time from a local `lexi-magic` clone at `origin/main` (`server/magicPrompt.ts`; set `MAGIC_REPO` / `MAGIC_REF` in `.env.local` to point elsewhere). Without a clone, Rewrite is off and says so; Translate still works. Sample menu runs entirely in the browser.
 
 On a bigger screen the play stays the size of an iPhone screen (402×874), with no device frame; on a phone it fills the screen.
 

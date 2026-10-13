@@ -273,6 +273,7 @@ export default function App() {
       if (res.status === 503) return showToast('Add ANTHROPIC_API_KEY to .env.local')
       const out = (await res.json()) as { text?: string; error?: string }
       if (out.text) setActive((c) => (c.id === id ? { ...c, text: out.text! } : c))
+      else if (out.error === 'no-prompt') showToast("Rewrite needs Magic's prompt: a local lexi-magic clone.")
       else showToast(out.error === 'declined' ? "That didn't come out right. Your words are unchanged." : "Couldn't rewrite that just now.")
     } finally {
       setWandBusy(false)
