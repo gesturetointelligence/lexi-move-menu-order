@@ -1,0 +1,11 @@
+{
+  "name": "Menu Order",
+  "slug": "menu-order",
+  "description": "Photograph a menu, tap each item on the photo, and each tap returns as its own card, already written, clear enough to hold up at the counter.",
+  "date": "2026-10-13",
+  "authors": ["wayne"],
+  "medium": "interactive",
+  "tags": ["camera", "menu", "cards", "ai", "magic"],
+  "demo_url": "https://gesturetointelligence.github.io/lexi-move-menu-order/",
+  "status": "active"
+}
