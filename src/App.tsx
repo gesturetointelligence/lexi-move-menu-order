@@ -350,7 +350,7 @@ export default function App() {
       />
 
       <CaptureTray
-        width={g.colW}
+        width={g.cardW}
         height={g.trayBlock}
         safeBottom={g.safeBottom}
         kb={kb}

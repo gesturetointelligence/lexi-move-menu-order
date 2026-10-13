@@ -200,7 +200,7 @@ input:focus-visible {
 
 .tray {
   position: absolute;
-  left: 0;
+  left: 8px; /* GAP: as wide as the card */
   bottom: 0;
   z-index: 20;
   display: flex;

@@ -2,13 +2,15 @@ import { useEffect, useState } from 'react'
 
 // CardPager's geometry, with the capture tray in the keyboard's place:
 //   cardH = windowH − topY − kbH − GAP   →   cardH = windowH − topY − trayBlock − GAP
-// The tray IS the keyboard here: docked full width at the bottom edge.
+// The tray IS the keyboard here: docked at the bottom edge, as wide as the card
+// (SIDE_PAD 8 each side, the insets the iOS 26 keyboard sits on).
 // Cards are always cardH. Two sizes in the whole app: the card and the presented card.
 
 export const GAP = 8 // between cards, and from the screen's edges
 export const BROWSE_TAIL = 32 // tappable strip under the last card (recall)
-// On a bigger screen the play stays inside an iPhone screen (402×874, the
-// reference Magic's onboarding is drawn for). No device mockup, just the size.
+// On a desktop the play stays inside an iPhone screen (402×874, the reference
+// Magic's onboarding is drawn for). No device mockup, just the size. On a phone
+// it takes the whole screen, whatever the phone's size.
 const IPHONE_W = 402
 const IPHONE_H = 874
 // The drawer is keyboard-sized: CardPager's KB_SEED, the keyboard height it seeds with.
@@ -42,8 +44,9 @@ export interface Geometry {
 }
 
 function compute(): Geometry {
-  const vh = Math.min(window.innerHeight, IPHONE_H)
-  const colW = Math.min(window.innerWidth, IPHONE_W)
+  const phone = window.matchMedia('(pointer: coarse)').matches
+  const vh = phone ? window.innerHeight : Math.min(window.innerHeight, IPHONE_H)
+  const colW = phone ? window.innerWidth : Math.min(window.innerWidth, IPHONE_W)
   const ox = Math.round((window.innerWidth - colW) / 2)
   const oy = Math.round((window.innerHeight - vh) / 2)
   const { top: safeTop, bottom: safeBottom } = readSafeArea()
