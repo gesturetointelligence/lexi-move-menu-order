@@ -156,8 +156,9 @@ export function MagicButton({ mode, busy, opacity, onTap, onArm }: Props) {
         style={{ width: BUTTON_SIZE, height: BUTTON_SIZE, opacity }}
         whileTap={reduced ? undefined : { scale: 0.92 }}
         onPointerDown={(e) => {
-          e.stopPropagation()
-          // Keep the gesture on the button so hold, slide onto a row, release works.
+          // No stopPropagation: a swipe that starts on the button is still the
+          // cards' swipe (commit, dismiss). The button keeps only a still press.
+          // Capture keeps hold, slide onto a row, release on the button.
           e.currentTarget.setPointerCapture(e.pointerId)
           const timer = window.setTimeout(() => {
             if (!hold.current) return
@@ -169,7 +170,16 @@ export function MagicButton({ mode, busy, opacity, onTap, onArm }: Props) {
         }}
         onPointerMove={(e) => {
           const h = hold.current
-          if (!h?.opened) return
+          if (!h) return
+          if (!h.opened) {
+            // Moved before the menu opened: it's a swipe, not a press. Let it go.
+            if (Math.hypot(e.clientX - h.x, e.clientY - h.y) > 8) {
+              clearTimeout(h.timer)
+              hold.current = null
+              e.currentTarget.releasePointerCapture(e.pointerId)
+            }
+            return
+          }
           if (Math.hypot(e.clientX - h.x, e.clientY - h.y) > 6) h.slid = true
           if (h.slid) setHot(rowAt(e.clientX, e.clientY))
         }}

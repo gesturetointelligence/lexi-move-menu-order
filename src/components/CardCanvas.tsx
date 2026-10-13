@@ -280,6 +280,7 @@ export function CardCanvas(props: Props) {
   const wheelScale = useRef(1)
   const wheelPull = useRef(0)
   const swipeX = useRef(0)
+  const wheelPush = useRef(0)
   useEffect(() => {
     const el = rootRef.current
     if (!el) return
@@ -308,6 +309,13 @@ export function CardCanvas(props: Props) {
         if (wheelPull.current > 80 && !live.current.dismissBlocked) {
           wheelPull.current = 0
           props.onDismiss()
+        }
+        // …and its scroll-up is the swipe up: past a notch, the card commits.
+        wheelPush.current = e.deltaY > 0 ? wheelPush.current + e.deltaY : 0
+        if (wheelPush.current > 120 && live.current.draft) {
+          wheelPush.current = 0
+          navigator.vibrate?.(10)
+          props.onCommit()
         }
         return
       }
@@ -570,6 +578,8 @@ function Slot({ id, text, g, opacity, scale, caret, shimmer, overlay, editing, d
         onAnimationComplete={() => dissolving && on.onDissolved()}
         onPointerDown={(e) => {
           if (!e.isPrimary) return
+          // A press on the Magic button is the button's, not the card's (no card menu, no edit).
+          if ((e.target as HTMLElement).closest('.magic-btn-wrap')) return
           const timer = window.setTimeout(() => {
             if (!press.current) return
             press.current.long = true
