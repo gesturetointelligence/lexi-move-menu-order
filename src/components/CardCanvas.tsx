@@ -157,9 +157,10 @@ export function CardCanvas(props: Props) {
       if (next < 0) next = -rubber(-next, g.vh)
       // Interactive dismiss: once the finger crosses the tray's top edge, the tray follows it.
       const trayTop = g.vh - kbH
-      if (!L.dismissBlocked && e.clientY > trayTop) {
+      const y = e.clientY - g.oy
+      if (!L.dismissBlocked && y > trayTop) {
         d.trayFollow = true
-        kb.set(clamp01(1 - (e.clientY - trayTop) / kbH))
+        kb.set(clamp01(1 - (y - trayTop) / kbH))
       } else if (d.trayFollow) kb.set(1)
     } else {
       if (next < 0) next = -rubber(-next, g.vh)
@@ -245,6 +246,7 @@ export function CardCanvas(props: Props) {
   // Desktop: wheel scrolls in browse; a trackpad pinch presents.
   const rootRef = useRef<HTMLDivElement | null>(null)
   const wheelScale = useRef(1)
+  const wheelPull = useRef(0)
   useEffect(() => {
     const el = rootRef.current
     if (!el) return
@@ -258,7 +260,15 @@ export function CardCanvas(props: Props) {
         } else if (wheelScale.current < 0.9) wheelScale.current = 1
         return
       }
-      if (live.current.writing) return
+      if (live.current.writing) {
+        // A trackpad's scroll-down is the drag-down: past a notch, the drawer goes.
+        wheelPull.current = e.deltaY < 0 ? wheelPull.current - e.deltaY : 0
+        if (wheelPull.current > 80 && !live.current.dismissBlocked) {
+          wheelPull.current = 0
+          props.onDismiss()
+        }
+        return
+      }
       anim.current?.stop()
       pos.set(Math.min(live.current.browseEnd, Math.max(0, pos.get() + e.deltaY)))
     }
@@ -275,7 +285,7 @@ export function CardCanvas(props: Props) {
   const touches = useRef(new Map<number, { x: number; y: number }>())
   const pinch0 = useRef<number | null>(null)
   const presentAt = (clientY: number) => {
-    const idx = Math.floor((clientY - g.topY + pos.get()) / g.step)
+    const idx = Math.floor((clientY - g.oy - g.topY + pos.get()) / g.step)
     const all = live.current.writing ? [...cards, active] : cards
     const card = all[Math.min(Math.max(idx, 0), all.length - 1)]
     if (card?.text) props.onPresent(card.id)

@@ -7,8 +7,12 @@ import { useEffect, useState } from 'react'
 
 export const GAP = 8 // between cards, and from the screen's edges
 export const BROWSE_TAIL = 32 // tappable strip under the last card (recall)
-const PHONE_MAX_W = 440 // on a desktop the play renders as a phone-width column
-const TRAY_FRACTION = 0.52
+// On a bigger screen the play stays inside an iPhone screen (402×874, the
+// reference Magic's onboarding is drawn for). No device mockup, just the size.
+const IPHONE_W = 402
+const IPHONE_H = 874
+// The drawer is keyboard-sized: CardPager's KB_SEED, the keyboard height it seeds with.
+export const KB_SEED = 336
 
 function readSafeArea() {
   const probe = document.createElement('div')
@@ -23,6 +27,8 @@ function readSafeArea() {
 }
 
 export interface Geometry {
+  ox: number // the screen's origin in the browser viewport
+  oy: number
   colW: number
   vh: number
   safeTop: number
@@ -36,15 +42,17 @@ export interface Geometry {
 }
 
 function compute(): Geometry {
-  const vh = window.innerHeight
-  const colW = Math.min(window.innerWidth, PHONE_MAX_W)
+  const vh = Math.min(window.innerHeight, IPHONE_H)
+  const colW = Math.min(window.innerWidth, IPHONE_W)
+  const ox = Math.round((window.innerWidth - colW) / 2)
+  const oy = Math.round((window.innerHeight - vh) / 2)
   const { top: safeTop, bottom: safeBottom } = readSafeArea()
   const topY = safeTop + GAP
-  const trayH = Math.round(vh * TRAY_FRACTION)
-  const trayBlock = trayH + safeBottom
+  const trayBlock = KB_SEED // like the keyboard's height, it includes the home indicator
+  const trayH = trayBlock - safeBottom
   const cardW = colW - 2 * GAP
   const cardH = Math.max(160, vh - topY - trayBlock - GAP)
-  return { colW, vh, safeTop, safeBottom, topY, trayH, trayBlock, cardW, cardH, step: cardH + GAP }
+  return { ox, oy, colW, vh, safeTop, safeBottom, topY, trayH, trayBlock, cardW, cardH, step: cardH + GAP }
 }
 
 export function useGeometry(): Geometry {

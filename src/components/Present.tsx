@@ -24,14 +24,13 @@ interface Props {
   g: Geometry
   texts: string[]
   index: number
-  colLeft: number
   /** Where card `i` sits on screen right now, so the morph opens and closes on it. */
   rectOf: (i: number) => Rect
   onIndex: (i: number) => void
   onClose: () => void
 }
 
-export function Present({ g, texts, index, colLeft, rectOf, onIndex, onClose }: Props) {
+export function Present({ g, texts, index, rectOf, onIndex, onClose }: Props) {
   const reduced = useReducedMotion()
   const [closing, setClosing] = useState(false)
   const [origin] = useState(() => rectOf(index))
@@ -89,7 +88,7 @@ export function Present({ g, texts, index, colLeft, rectOf, onIndex, onClose }: 
   })
 
   const target = closing ? rectOf(index) : null
-  const full = { left: colLeft, top: 0, width: g.colW, height: g.vh, borderRadius: 0 }
+  const full = { left: 0, top: 0, width: g.colW, height: g.vh, borderRadius: 0 }
 
   return (
     <motion.div
@@ -153,7 +152,7 @@ export function Present({ g, texts, index, colLeft, rectOf, onIndex, onClose }: 
           return
         }
         // Taps page through the order, like a slide clicker. Never exit.
-        const x = (e.clientX - colLeft) / g.colW
+        const x = (e.clientX - g.ox) / g.colW
         if (x <= PAGE_LEFT) page(-1)
         else if (x >= PAGE_RIGHT) page(1)
       }}

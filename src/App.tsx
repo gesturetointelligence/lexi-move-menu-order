@@ -5,6 +5,7 @@ import { CaptureTray } from './components/CaptureTray'
 import type { ReadSource } from './components/CaptureTray'
 import { CardCanvas, KB_TIMING } from './components/CardCanvas'
 import { CardMenu } from './components/CardMenu'
+import { DismissButton } from './components/DismissButton'
 import { CARD_INK, fitCardText } from './components/MagicCard'
 import { Present } from './components/Present'
 import type { Rect } from './components/Present'
@@ -40,7 +41,6 @@ interface Flight {
 export default function App() {
   const g = useGeometry()
   const reduced = useReducedMotion()
-  const colLeft = (window.innerWidth - g.colW) / 2
 
   // The tray is the keyboard: `writing` flips at the start of a rise or a fall
   // (keyboardWillShow / WillHide), `kb` is its live progress.
@@ -202,15 +202,16 @@ export default function App() {
     const id = shown[i]?.id
     const el = id ? document.querySelector(`[data-slot="${id}"]`) : null
     const r = el?.getBoundingClientRect()
-    if (!r) return { left: colLeft + GAP, top: g.topY, width: g.cardW, height: g.cardH }
-    const top = Math.min(Math.max(r.top, g.topY), g.vh - g.cardH - GAP)
-    return { left: r.left, top, width: r.width, height: r.height }
+    if (!r) return { left: GAP, top: g.topY, width: g.cardW, height: g.cardH }
+    // Screen space: the play's iPhone screen, not the browser viewport.
+    const top = Math.min(Math.max(r.top - g.oy, g.topY), g.vh - g.cardH - GAP)
+    return { left: r.left - g.ox, top, width: r.width, height: r.height }
   }
 
   const status = error ? ERRORS[error] : null
 
   return (
-    <div className="phone" style={{ width: g.colW }}>
+    <div className="phone" style={{ left: g.ox, top: g.oy, width: g.colW, height: g.vh }}>
       <CardCanvas
         g={g}
         cards={cards}
@@ -252,6 +253,8 @@ export default function App() {
         onDismiss={dismissTray}
       />
 
+      <DismissButton kb={kb} trayBlock={g.trayBlock} hidden={!writing || dismissBlocked} onDismiss={dismissTray} />
+
       {/* The printed words lift off the menu and settle onto the card. */}
       {flights.map((f) => {
         const s0 = Math.min(1, (f.from.height * 0.62) / f.lineHeight)
@@ -269,12 +272,12 @@ export default function App() {
               transformOrigin: '0% 0%',
             }}
             initial={{
-              left: f.from.left + 8,
-              top: f.from.top + (f.from.height - f.lineHeight * s0) / 2,
+              left: f.from.left - g.ox + 8,
+              top: f.from.top - g.oy + (f.from.height - f.lineHeight * s0) / 2,
               scale: s0,
               opacity: 0.6,
             }}
-            animate={{ left: colLeft + GAP + PAD, top: g.topY + PAD, scale: 1, opacity: 1 }}
+            animate={{ left: GAP + PAD, top: g.topY + PAD, scale: 1, opacity: 1 }}
             transition={{ type: 'spring', visualDuration: 0.5, bounce: 0.15 }}
             onAnimationComplete={() => setFlights((all) => all.filter((x) => x.key !== f.key))}
           >
@@ -294,7 +297,6 @@ export default function App() {
             g={g}
             texts={shown.map((s) => s.text)}
             index={Math.min(present, shown.length - 1)}
-            colLeft={colLeft}
             rectOf={rectOf}
             onIndex={setPresent}
             onClose={() => setPresent(null)}

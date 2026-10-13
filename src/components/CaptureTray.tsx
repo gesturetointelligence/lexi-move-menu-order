@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { AnimatePresence, animate, motion, useReducedMotion, useTransform } from 'motion/react'
 import type { MotionValue } from 'motion/react'
 import { KB_TIMING } from './CardCanvas'
@@ -57,39 +57,101 @@ export function CaptureTray(props: Props) {
   const visibility = useTransform(kb, (v) => (v <= 0.001 ? 'hidden' : 'visible'))
   const scrollRef = useRef<HTMLDivElement | null>(null)
   const fileRef = useRef<HTMLInputElement | null>(null)
-  const drag = useRef<{ startY: number; active: boolean; moved: boolean } | null>(null)
+  const drag = useRef<{ startY: number; scroll0: number; mode: 'none' | 'dismiss' | 'scroll'; last: { t: number; y: number }[] } | null>(null)
   const { videoRef, status, error } = useCamera(!photo && props.live)
   const [flash, setFlash] = useState(0)
 
   // Drag the tray down (from the top of its content) and it follows the finger,
   // like an interactive keyboard dismiss. A lone empty card can't be dismissed.
-  const onPointerDown = (e: React.PointerEvent) => {
-    drag.current = { startY: e.clientY, active: false, moved: false }
-  }
-  const onPointerMove = (e: React.PointerEvent) => {
-    const d = drag.current
-    if (!d) return
-    const dy = e.clientY - d.startY
-    const atTop = (scrollRef.current?.scrollTop ?? 0) <= 0
-    if (!d.active && dy > 10 && atTop) {
-      d.active = true
-      ;(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId)
+  // Touch is handled natively so the browser can't claim the swipe as a scroll.
+  const rootRef = useRef<HTMLDivElement | null>(null)
+  const dragged = useRef(false) // a scroll or dismiss drag must not also tap an item
+  const live = useRef(props)
+  live.current = props
+  useEffect(() => {
+    const el = rootRef.current
+    if (!el) return
+    // The drawer owns its gestures: a pull down from the top is the dismiss,
+    // anything else scrolls the photo (with momentum). The browser never pans it.
+    let fling: { stop: () => void } | null = null
+    const body = () => scrollRef.current
+    const begin = (y: number) => {
+      fling?.stop()
+      dragged.current = false
+      drag.current = { startY: y, scroll0: body()?.scrollTop ?? 0, mode: 'none', last: [{ t: performance.now(), y }] }
     }
-    if (d.active) {
-      d.moved = true
+    const move = (y: number, e: Event) => {
+      const d = drag.current
+      if (!d) return
+      const dy = y - d.startY
+      d.last.push({ t: performance.now(), y })
+      if (d.last.length > 5) d.last.shift()
+      if (d.mode === 'none') {
+        if (Math.abs(dy) < 4) return
+        d.mode = dy > 0 && d.scroll0 <= 0 ? 'dismiss' : 'scroll'
+        dragged.current = true
+      }
+      e.preventDefault()
+      const P = live.current
+      if (d.mode === 'scroll') {
+        const el = body()
+        if (el) el.scrollTop = d.scroll0 - dy
+        return
+      }
       const free = Math.max(0, dy)
-      kb.set(1 - (props.dismissBlocked ? Math.min(free, 24) * 0.3 : free) / height)
+      P.kb.set(1 - (P.dismissBlocked ? Math.min(free, 24) * 0.3 : free) / P.height)
     }
-  }
-  const onPointerUp = () => {
-    const d = drag.current
-    drag.current = null
-    if (!d?.active) return
-    if (!props.dismissBlocked && kb.get() < 0.75) props.onDismiss()
-    else animate(kb, 1, KB_TIMING)
-  }
+    const end = () => {
+      const d = drag.current
+      drag.current = null
+      if (!d || d.mode === 'none') return
+      const P = live.current
+      if (d.mode === 'dismiss') {
+        if (!P.dismissBlocked && P.kb.get() < 0.75) P.onDismiss()
+        else animate(P.kb, 1, KB_TIMING)
+        return
+      }
+      const el = body()
+      const a = d.last[0]
+      const z = d.last[d.last.length - 1]
+      const v = (z.y - a.y) / Math.max(1, z.t - a.t) // px/ms, +down
+      if (!el || Math.abs(v) < 0.05) return
+      fling = animate(el.scrollTop, el.scrollTop - v * 325, {
+        type: 'inertia',
+        velocity: -v * 1000,
+        min: 0,
+        max: el.scrollHeight - el.clientHeight,
+        power: 0.8,
+        timeConstant: 325,
+        onUpdate: (top: number) => {
+          el.scrollTop = top
+        },
+      })
+    }
+    const ts = (e: TouchEvent) => begin(e.touches[0].clientY)
+    const tm = (e: TouchEvent) => move(e.touches[0].clientY, e)
+    const md = (e: PointerEvent) => e.pointerType === 'mouse' && begin(e.clientY)
+    const mm = (e: PointerEvent) => e.pointerType === 'mouse' && move(e.clientY, e)
+    const mu = (e: PointerEvent) => e.pointerType === 'mouse' && end()
+    el.addEventListener('touchstart', ts, { passive: true })
+    el.addEventListener('touchmove', tm, { passive: false })
+    el.addEventListener('touchend', end)
+    el.addEventListener('touchcancel', end)
+    el.addEventListener('pointerdown', md)
+    window.addEventListener('pointermove', mm)
+    window.addEventListener('pointerup', mu)
+    return () => {
+      el.removeEventListener('touchstart', ts)
+      el.removeEventListener('touchmove', tm)
+      el.removeEventListener('touchend', end)
+      el.removeEventListener('touchcancel', end)
+      el.removeEventListener('pointerdown', md)
+      window.removeEventListener('pointermove', mm)
+      window.removeEventListener('pointerup', mu)
+    }
+  }, [])
   const swallowClickAfterDrag = (e: React.MouseEvent) => {
-    if (kb.get() < 1) {
+    if (kb.get() < 1 || dragged.current) {
       e.stopPropagation()
       e.preventDefault()
     }
@@ -138,13 +200,25 @@ export function CaptureTray(props: Props) {
       className="tray"
       role="dialog"
       aria-label="Menu"
+      ref={rootRef}
       style={{ width, height, paddingBottom: safeBottom, y, visibility }}
-      onPointerDown={onPointerDown}
-      onPointerMove={onPointerMove}
-      onPointerUp={onPointerUp}
-      onPointerCancel={onPointerUp}
       onClickCapture={swallowClickAfterDrag}
     >
+      {photo && (
+        <div className="tray-head">
+          <span className="tray-status" aria-live="polite">
+            {source === 'cloud' && (
+              <span className="tray-cloud" title="This photo is read by a cloud model. It leaves the phone.">
+                <CloudGlyph />
+              </span>
+            )}
+            {note ?? status_}
+          </span>
+          <button type="button" className="tray-round" aria-label="Photograph another menu" onClick={props.onRetake}>
+            <CameraGlyph />
+          </button>
+        </div>
+      )}
       <div ref={scrollRef} className="tray-body">
         {!photo ? (
           <div className="tray-camera">
@@ -222,21 +296,6 @@ export function CaptureTray(props: Props) {
         )}
       </div>
 
-      {photo && (
-        <div className="tray-overlay">
-          <span className="tray-status" aria-live="polite">
-            {source === 'cloud' && (
-              <span className="tray-cloud" title="This photo is read by a cloud model. It leaves the phone.">
-                <CloudGlyph />
-              </span>
-            )}
-            {note ?? status_}
-          </span>
-          <button type="button" className="tray-round" aria-label="Photograph another menu" onClick={props.onRetake}>
-            <CameraGlyph />
-          </button>
-        </div>
-      )}
     </motion.div>
   )
 }

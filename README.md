@@ -10,11 +10,13 @@ Magic's cards, with Colour Capture's camera tray in the keyboard's place.
 
 The screen is Magic's card canvas: one card at the writing anchor, the camera tray docked under it like the keyboard. Photograph a menu (or tap Sample) and the tray stays up with the photo in it; items light up where they are printed. Tap an item and its printed words lift off the menu onto the card. Tap another and the card commits (it slides up to 1/3) while a new one rises with the next item. Each tap is its own card, in one thread.
 
-The tray works exactly as the keyboard does in CardPager (`apps/magic-mobile/docs/cardpager-v2.md`): its height sets the card height, and its progress drives every fade. Swipe a card up to commit it. Drag the cards (or the tray) down and the tray follows the finger; a card with text commits on leave, an empty one recedes with the tray, and a lone empty card can't be dismissed. Browsing ends flush at the last card; pull past the end and a card rises, past the threshold the tray comes back. Pinch out (or a trackpad pinch) to Present: full-bleed, tap the left or right third to page, swipe or pinch in to go back. Hold a card for Share, Copy, Delete. Double-tap to edit.
+The tray works exactly as the keyboard does in CardPager (`apps/magic-mobile/docs/cardpager-v2.md`): it is keyboard-sized (336pt, CardPager's `KB_SEED`), its height sets the card height, and its progress drives every fade. Swipe a card up to commit it. To leave the menu: tap the glass Dismiss above it (Magic's keyboard-toolbar button), drag the cards or the tray down (the tray follows the finger), or scroll down on a trackpad; a card with text commits on leave, an empty one recedes with the tray, and a lone empty card can't be dismissed. Browsing ends flush at the last card; pull past the end and a card rises, past the threshold the tray comes back. Pinch out (or a trackpad pinch) to Present: full-bleed, tap the left or right third to page, swipe or pinch in to go back. Hold a card for Share, Copy, Delete. Double-tap to edit.
 
 The cards carry the menu's own words, editable like any card. Nothing is written for you.
 
 **The cloud read is a labelled play.** Magic's promise is that what you write never leaves the phone. Here the menu photo goes to a cloud model to find where items are printed, and the tray marks it with a cloud glyph. Sample menu runs entirely in the browser.
+
+On a bigger screen the play stays the size of an iPhone screen (402×874), with no device frame; on a phone it fills the screen.
 
 ## How to Run
 
