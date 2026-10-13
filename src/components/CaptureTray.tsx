@@ -2,6 +2,8 @@ import { useEffect, useRef, useState } from 'react'
 import { AnimatePresence, animate, motion, useReducedMotion, useTransform } from 'motion/react'
 import type { MotionValue } from 'motion/react'
 import { KB_TIMING } from './CardCanvas'
+import { Keyboard } from './Keyboard'
+import type { KeyAction } from './Keyboard'
 import { useCamera } from '../hooks/useCamera'
 import { downscale } from '../lib/readMenu'
 import type { MenuItem, Photo } from '../lib/types'
@@ -17,6 +19,16 @@ function CameraGlyph() {
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
       <path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z" />
       <circle cx="12" cy="13" r="3" />
+    </svg>
+  )
+}
+
+function PhotosGlyph() {
+  return (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <rect x="3.5" y="4.5" width="17" height="15" rx="3" />
+      <circle cx="9" cy="10" r="1.7" />
+      <path d="m4 17.5 4.5-4.5 3.5 3.5 3.5-3.5 4.5 4.5" />
     </svg>
   )
 }
@@ -37,6 +49,9 @@ interface Props {
   safeBottom: number
   kb: MotionValue<number>
   live: boolean // tray is up: camera may run
+  input: 'keyboard' | 'camera' // what the drawer holds, like an input view: same height either way
+  autoCaps: boolean
+  onKey: (a: KeyAction) => void
   dismissBlocked: boolean
   photo: Photo | null
   source: ReadSource | null
@@ -58,7 +73,8 @@ export function CaptureTray(props: Props) {
   const scrollRef = useRef<HTMLDivElement | null>(null)
   const fileRef = useRef<HTMLInputElement | null>(null)
   const drag = useRef<{ startY: number; scroll0: number; mode: 'none' | 'dismiss' | 'scroll'; last: { t: number; y: number }[] } | null>(null)
-  const { videoRef, status, error } = useCamera(!photo && props.live)
+  const camera = props.input === 'camera'
+  const { videoRef, status, error } = useCamera(camera && !photo && props.live)
   const [flash, setFlash] = useState(0)
 
   // Drag the tray down (from the top of its content) and it follows the finger,
@@ -76,6 +92,8 @@ export function CaptureTray(props: Props) {
     let fling: { stop: () => void } | null = null
     const body = () => scrollRef.current
     const begin = (y: number) => {
+      // The keyboard itself can't be dragged away; the cards (or Dismiss) take it down.
+      if (live.current.input === 'keyboard') return
       fling?.stop()
       dragged.current = false
       drag.current = { startY: y, scroll0: body()?.scrollTop ?? 0, mode: 'none', last: [{ t: performance.now(), y }] }
@@ -180,7 +198,7 @@ export function CaptureTray(props: Props) {
     reader.readAsDataURL(file)
   }
 
-  const innerW = width - 16
+  const innerW = width
   const photoH = photo ? (innerW * photo.height) / photo.width : 0
 
   const status_ = photo
@@ -189,9 +207,7 @@ export function CaptureTray(props: Props) {
         ? 'Reading in the cloud'
         : 'Reading'
       : items.length
-        ? source === 'cloud'
-          ? `Read in the cloud · ${items.length}`
-          : `${items.length} items`
+        ? 'Tap to select'
         : ''
     : ''
 
@@ -204,6 +220,10 @@ export function CaptureTray(props: Props) {
       style={{ width, height, paddingBottom: safeBottom, y, visibility }}
       onClickCapture={swallowClickAfterDrag}
     >
+      {!camera ? (
+        <Keyboard autoCaps={props.autoCaps} onKey={props.onKey} />
+      ) : (
+        <>
       {photo && (
         <div className="tray-head">
           <span className="tray-status" aria-live="polite">
@@ -239,8 +259,13 @@ export function CaptureTray(props: Props) {
               )}
             </AnimatePresence>
             <div className="tray-camera-bar">
-              <button type="button" className="tray-pill" onClick={() => fileRef.current?.click()}>
-                All Photos
+              <button
+                type="button"
+                className="tray-icon"
+                aria-label="All Photos"
+                onClick={() => fileRef.current?.click()}
+              >
+                <PhotosGlyph />
               </button>
               <button
                 type="button"
@@ -296,6 +321,8 @@ export function CaptureTray(props: Props) {
         )}
       </div>
 
+        </>
+      )}
     </motion.div>
   )
 }

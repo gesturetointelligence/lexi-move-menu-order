@@ -7,6 +7,8 @@ import type { Geometry } from '../hooks/useGeometry'
 import { CARD_FONT, CARD_FONT_WEIGHT, PAD } from '../lib/textLayout'
 import type { Card } from '../lib/types'
 import { NEW_THREAD_HOME_SPRING, commitsNewThread } from './NewThreadPreview'
+import { MagicButton } from './MagicButton'
+import type { WandMode } from './MagicButton'
 
 // CardPager v2 (apps/magic-mobile/docs/cardpager-v2.md), in the browser, with
 // the capture tray in the keyboard's place. One position (`pos`, the scroll
@@ -53,6 +55,10 @@ interface Props {
   hideActiveText: boolean // a word is in flight onto the writing surface
   dismissBlocked: boolean // lone empty card on a fresh thread
   newX: MotionValue<number> // the new-thread layer: rests at the screen width, 0 = covering
+  wandMode: WandMode
+  wandBusy: boolean
+  onWandTap: () => void
+  onWandArm: (m: WandMode) => void
   onNewThread: () => void
   onCommit: () => void
   onDismiss: () => void
@@ -488,6 +494,12 @@ function EditorSlot(
     return (1 - (1 - settled) * pp) * rise * recede
   })
   const scale = useTransform(pos, (v) => 0.92 + 0.08 * (draft ? 1 : clamp01((v - anchor) / g.step + 1)))
+  // CardPager: wand = buttonOpacity · clamp(1 − p/0.45) · rise — it fades out over the first 45% of a commit swipe.
+  const wandOpacity = useTransform(pos, (v) => {
+    const pp = clamp01((v - anchor) / g.step)
+    const rise = draft ? 1 : clamp01((v - anchor) / g.step + 1)
+    return clamp01(1 - pp / 0.45) * rise
+  })
   const reduced = useReducedMotion()
   return (
     <Slot
@@ -497,6 +509,12 @@ function EditorSlot(
       opacity={opacity}
       scale={scale}
       caret={!active.text}
+      shimmer={props.wandBusy}
+      overlay={
+        props.writing && props.editing !== active.id ? (
+          <MagicButton mode={props.wandMode} busy={props.wandBusy} opacity={wandOpacity} onTap={props.onWandTap} onArm={props.onWandArm} />
+        ) : null
+      }
       editing={props.editing === active.id}
       dissolving={props.dissolving === active.id}
       reduced={!!reduced}
@@ -529,6 +547,8 @@ interface SlotProps {
   opacity: MotionValue<number>
   scale?: MotionValue<number>
   caret?: boolean
+  shimmer?: boolean
+  overlay?: React.ReactNode
   editing: boolean
   dissolving: boolean
   reduced: boolean
@@ -538,7 +558,7 @@ interface SlotProps {
   onDissolved: () => void
 }
 
-function Slot({ id, text, g, opacity, scale, caret, editing, dissolving, reduced, ...on }: SlotProps) {
+function Slot({ id, text, g, opacity, scale, caret, shimmer, overlay, editing, dissolving, reduced, ...on }: SlotProps) {
   const press = useRef<{ x: number; y: number; timer: number; long: boolean } | null>(null)
   const lastTap = useRef(0)
 
@@ -583,9 +603,16 @@ function Slot({ id, text, g, opacity, scale, caret, editing, dissolving, reduced
         }}
         onContextMenu={(e) => e.preventDefault()}
       >
-        <MagicCard text={editing ? '' : text} width={g.cardW} height={g.cardH} caret={caret && !editing}>
+        <MagicCard
+          text={editing ? '' : text}
+          width={g.cardW}
+          height={g.cardH}
+          caret={caret && !editing}
+          className={shimmer ? 'shimmer' : undefined}
+        >
           {editing && <CardEditor initial={text} width={g.cardW} height={g.cardH} onDone={on.onEditDone} />}
         </MagicCard>
+        {overlay}
       </motion.div>
     </motion.div>
   )

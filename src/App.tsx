@@ -8,6 +8,8 @@ import { CardMenu } from './components/CardMenu'
 import { DismissButton } from './components/DismissButton'
 import { NEW_THREAD_RESET_COVER_MS, NewThreadPreview, REVEAL_TIMING } from './components/NewThreadPreview'
 import { CARD_INK, fitCardText } from './components/MagicCard'
+import type { WandMode } from './components/MagicButton'
+import type { KeyAction } from './components/Keyboard'
 import { Present } from './components/Present'
 import type { Rect } from './components/Present'
 import { GAP, useGeometry } from './hooks/useGeometry'
@@ -64,6 +66,10 @@ export default function App() {
   const [dissolving, setDissolving] = useState<string | null>(null)
   const [present, setPresent] = useState<number | null>(null)
   const [toast, setToast] = useState<{ key: number; text: string } | null>(null)
+  // What the drawer holds. Magic opens on a blank card with the keyboard up.
+  const [input, setInput] = useState<'keyboard' | 'camera'>('keyboard')
+  const [wandMode, setWandMode] = useState<WandMode>({ kind: 'rewrite' })
+  const [wandBusy, setWandBusy] = useState(false)
   const abortRef = useRef<AbortController | null>(null)
   const newThreading = useRef(false)
   const flightKey = useRef(0)
@@ -155,6 +161,7 @@ export default function App() {
     if (!active.text) return
     setCards((prev) => [...prev, active])
     setActive({ id: newId(), text: '' })
+    setInput('keyboard') // a new card opens on the keyboard, the default
   }, [active])
 
   // ---- The tray, like the keyboard ----
@@ -173,6 +180,7 @@ export default function App() {
   }, [active, cards.length, kb])
 
   const recallTray = useCallback(() => {
+    setInput('keyboard')
     setWriting(true)
     animate(kb, 1, KB_TIMING)
   }, [kb])
@@ -196,6 +204,8 @@ export default function App() {
       setMenuFor(null)
       setDissolving(null)
       setWriting(true)
+      setInput('keyboard')
+      setWandMode({ kind: 'rewrite' })
       kb.set(1)
       setTimeout(() => {
         newX.set(g.colW) // release instantly: the revealed thread is the preview
@@ -203,6 +213,71 @@ export default function App() {
       }, NEW_THREAD_RESET_COVER_MS)
     })
   }, [newX, kb, g.colW])
+
+  // ---- Typing (the drawn keyboard, or a physical one) ----
+  const handleKey = useCallback((a: KeyAction) => {
+    setActive((c) => {
+      if (a.type === 'backspace') return { ...c, text: [...c.text].slice(0, -1).join('') }
+      if (a.type === 'return') return { ...c, text: c.text + '\n' }
+      return { ...c, text: c.text + a.ch }
+    })
+  }, [])
+  const autoCaps = active.text === '' || /[.!?]\s$|\n$/.test(active.text)
+
+  useEffect(() => {
+    if (!writing || input !== 'keyboard') return
+    const onKey = (e: KeyboardEvent) => {
+      const t = e.target as HTMLElement
+      if (t.tagName === 'TEXTAREA' || t.tagName === 'INPUT' || e.metaKey || e.ctrlKey || e.altKey) return
+      if (menuFor || present !== null) return
+      if (e.key === 'Backspace') handleKey({ type: 'backspace' })
+      else if (e.key === 'Enter') handleKey({ type: 'return' })
+      else if (e.key.length === 1) handleKey({ type: 'char', ch: e.key })
+      else return
+      e.preventDefault()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [writing, input, handleKey, menuFor, present])
+
+  // ---- The Magic button ----
+  const switchInput = useCallback((to: 'keyboard' | 'camera') => setInput(to), [])
+
+  const handleWandArm = useCallback(
+    (m: WandMode) => {
+      setWandMode(m)
+      // Arm only, as in Magic, except Camera: picking it also brings the camera up.
+      if (m.kind === 'camera') switchInput('camera')
+    },
+    [switchInput],
+  )
+
+  const handleWandTap = useCallback(async () => {
+    if (wandMode.kind === 'camera') {
+      switchInput(input === 'camera' ? 'keyboard' : 'camera')
+      return
+    }
+    const text = active.text
+    if (!text.trim()) return
+    const id = active.id
+    setWandBusy(true)
+    try {
+      const res = await fetch(`${import.meta.env.BASE_URL}api/magic`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(
+          wandMode.kind === 'translate' ? { mode: 'translate', text, language: wandMode.lang } : { mode: 'rewrite', text },
+        ),
+      }).catch(() => null)
+      if (!res || res.status === 404) return showToast('Rewrite needs the dev server.')
+      if (res.status === 503) return showToast('Add ANTHROPIC_API_KEY to .env.local')
+      const out = (await res.json()) as { text?: string; error?: string }
+      if (out.text) setActive((c) => (c.id === id ? { ...c, text: out.text! } : c))
+      else showToast(out.error === 'declined' ? "That didn't come out right. Your words are unchanged." : "Couldn't rewrite that just now.")
+    } finally {
+      setWandBusy(false)
+    }
+  }, [wandMode, input, active, switchInput])
 
   // ---- Card actions ----
   const cardText = (id: string) => (id === active.id ? active.text : cards.find((c) => c.id === id)?.text ?? '')
@@ -254,6 +329,10 @@ export default function App() {
         hideActiveText={flights.some((f) => f.cardId === active.id)}
         dismissBlocked={dismissBlocked}
         newX={newX}
+        wandMode={wandMode}
+        wandBusy={wandBusy}
+        onWandTap={handleWandTap}
+        onWandArm={handleWandArm}
         onNewThread={startNewThread}
         onCommit={handleCommit}
         onDismiss={dismissTray}
@@ -275,6 +354,9 @@ export default function App() {
         safeBottom={g.safeBottom}
         kb={kb}
         live={writing}
+        input={input}
+        autoCaps={autoCaps}
+        onKey={handleKey}
         dismissBlocked={dismissBlocked}
         photo={photo}
         source={source}
